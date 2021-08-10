@@ -1,0 +1,14 @@
+version: "3.3"
+services:
+
+  cb-spider:
+    image: cloudbaristaorg/cb-spider:latest
+    container_name: cb-spider-backend
+    ports:
+      - "31024:1024"
+      - "32048:2048"
+    networks:
+      - cb-unit-net
+  
+networks:
+  cb-unit-net:

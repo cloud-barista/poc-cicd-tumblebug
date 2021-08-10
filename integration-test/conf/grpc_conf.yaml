@@ -1,0 +1,8 @@
+version: 1
+grpc:
+  tumblebugsrv:
+    addr: :30252  
+  tumblebugcli:
+    server_addr: 127.0.0.1:30252    
+  spidercli:
+    server_addr: 127.0.0.1:32048
