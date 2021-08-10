@@ -9,6 +9,7 @@ replace (
 )
 
 require (
+	bou.ke/monkey v1.0.2 // indirect
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751
 	github.com/beego/beego/v2 v2.0.1
 	github.com/bramvdbogaerde/go-scp v1.0.0

@@ -49,3 +49,6 @@ src/rttmap.csv
 
 log/
 *.history
+
+integration-test/profile.cov
+integration-test/meta_db/dat/*
