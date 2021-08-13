@@ -1,53 +1,67 @@
-package restscenario
+package goscenario
 
 import (
+	"context"
 	"fmt"
+	"io"
 	"log"
+	"net"
 	"os"
+	"os/exec"
 	"strconv"
 	"sync"
 	"time"
 
-	"os/exec"
-
-	"bou.ke/monkey"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/sirupsen/logrus"
 	"xorm.io/xorm"
 	"xorm.io/xorm/names"
 
-	cbstore "github.com/cloud-barista/cb-store"
+	"github.com/cloud-barista/poc-cicd-tumblebug/src/api/grpc/config"
+	"github.com/cloud-barista/poc-cicd-tumblebug/src/api/grpc/logger"
 	"github.com/cloud-barista/poc-cicd-tumblebug/src/core/common"
 	"github.com/cloud-barista/poc-cicd-tumblebug/src/core/mcir"
 	"github.com/cloud-barista/poc-cicd-tumblebug/src/core/mcis"
-
 	"github.com/go-resty/resty/v2"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/test/bufconn"
+
+	cbstore "github.com/cloud-barista/cb-store"
+	gc "github.com/cloud-barista/poc-cicd-tumblebug/src/api/grpc/common"
+	pb "github.com/cloud-barista/poc-cicd-tumblebug/src/api/grpc/protobuf/cbtumblebug"
+	grpc_common "github.com/cloud-barista/poc-cicd-tumblebug/src/api/grpc/server/common"
+	grpc_mcir "github.com/cloud-barista/poc-cicd-tumblebug/src/api/grpc/server/mcir"
+	grpc_mcis "github.com/cloud-barista/poc-cicd-tumblebug/src/api/grpc/server/mcis"
+
+	api "github.com/cloud-barista/poc-cicd-tumblebug/src/api/grpc/request"
+
+	"bou.ke/monkey"
 )
 
 type TestCases struct {
-	Name                 string
-	EchoFunc             string
-	HttpMethod           string
-	WhenURL              string
-	GivenQueryParams     string
-	GivenParaNames       []string
-	GivenParaVals        []string
-	GivenPostData        string
-	ExpectStatus         int
-	ExpectBodyStartsWith string
-	ExpectBodyContains   string
+	Name                string
+	Instance            interface{}
+	Method              string
+	Args                []interface{}
+	ExpectResStartsWith string
+	ExpectResContains   string
 }
 
 var (
-	holdStdout *os.File = nil
-	nullOut    *os.File = nil
+	holdStdout *os.File        = nil
+	nullOut    *os.File        = nil
+	NsApi      *api.NSApi      = nil
+	McirApi    *api.MCIRApi    = nil
+	McisApi    *api.MCISApi    = nil
+	TbutilApi  *api.UtilityApi = nil
+	gs         *grpc.Server    = nil
 )
 
 func init() {
 	logrus.SetLevel(logrus.ErrorLevel)
 }
 
-func SetUpForRest() {
+func SetUpForGrpc() {
 
 	holdStdout = os.Stdout
 	nullOut, _ := os.Open(os.DevNull)
@@ -203,6 +217,100 @@ func SetUpForRest() {
 	defer ticker.Stop()
 
 	/**
+	** Tumblebug Grpc Server Setup
+	**/
+	listener := bufconn.Listen(1024 * 1024)
+
+	monkey.Patch(gc.NewCBConnection, func(gConf *config.GrpcClientConfig) (*gc.CBConnection, io.Closer, error) {
+		conn, _ := grpc.DialContext(context.Background(), "", grpc.WithInsecure(), grpc.WithContextDialer(
+			func(context.Context, string) (net.Conn, error) {
+				return listener.Dial()
+			}))
+		return &gc.CBConnection{Conn: conn}, nil, nil
+	})
+
+	logger := logger.NewLogger()
+
+	tumblebugsrv := &config.GrpcServerConfig{
+		Addr: "127.0.0.1:30252",
+	}
+
+	cbserver, closer, err := gc.NewCBServer(tumblebugsrv)
+	if err != nil {
+		logger.Fatal("failed to create grpc server: ", err)
+	}
+
+	gs = cbserver.Server
+	pb.RegisterUtilityServer(gs, &grpc_common.UtilityService{})
+	pb.RegisterNSServer(gs, &grpc_common.NSService{})
+	pb.RegisterMCIRServer(gs, &grpc_mcir.MCIRService{})
+	pb.RegisterMCISServer(gs, &grpc_mcis.MCISService{})
+
+	go func() {
+
+		if closer != nil {
+			defer closer.Close()
+		}
+
+		if err := gs.Serve(listener); err != nil {
+			logger.Fatal("failed to serve: ", err)
+		}
+	}()
+
+	time.Sleep(time.Second * 2)
+
+	/**
+	** Tumblebug Grpc API Setup
+	**/
+	NsApi = api.NewNSManager()
+
+	err = NsApi.SetConfigPath("../conf/grpc_conf.yaml")
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	err = NsApi.Open()
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	McirApi = api.NewMCIRManager()
+
+	err = McirApi.SetConfigPath("../conf/grpc_conf.yaml")
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	err = McirApi.Open()
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	McisApi = api.NewMCISManager()
+
+	err = McisApi.SetConfigPath("../conf/grpc_conf.yaml")
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	err = McisApi.Open()
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	TbutilApi = api.NewUtilityManager()
+
+	err = TbutilApi.SetConfigPath("../conf/grpc_conf.yaml")
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	err = TbutilApi.Open()
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	/**
 	** Function Patch for Testing
 	**/
 	monkey.Patch(mcis.CheckConnectivity, func(host string, port string) error {
@@ -210,6 +318,8 @@ func SetUpForRest() {
 	})
 
 	monkey.Patch(mcis.SSHRun, func(sshInfo mcis.SSHInfo, cmd string) (string, error) {
+		//fmt.Printf("ssh cmd : %s\n", cmd)
+
 		return cmd + " success", nil
 	})
 
@@ -234,7 +344,7 @@ func SetUpForRest() {
 	})
 
 	monkey.Patch(mcis.CallMonitoringAsync, func(wg *sync.WaitGroup, nsID string, mcisID string, vmID string, givenUserName string, method string, cmd string, returnResult *[]mcis.SshCmdResult) {
-		defer wg.Done()
+		defer wg.Done() //goroutin sync done
 
 		vmIP, _ := mcis.GetVmIp(nsID, mcisID, vmID)
 		vmInfoTmp, _ := mcis.GetVmObject(nsID, mcisID, vmID)
@@ -255,7 +365,7 @@ func SetUpForRest() {
 	})
 
 	monkey.Patch(mcis.CallGetMonitoringAsync, func(wg *sync.WaitGroup, nsID string, mcisID string, vmID string, vmIP string, method string, metric string, cmd string, returnResult *[]mcis.MonResultSimple) {
-		defer wg.Done()
+		defer wg.Done() //goroutin sync done
 
 		ResultTmp := mcis.MonResultSimple{}
 		ResultTmp.VmId = vmID
@@ -284,7 +394,13 @@ func SetUpForRest() {
 	})
 }
 
-func TearDownForRest() {
+func TearDownForGrpc() {
+	NsApi.Close()
+	McirApi.Close()
+	McisApi.Close()
+	TbutilApi.Close()
+	gs.Stop()
+
 	cmd := exec.Command("./stop.sh")
 	cmd.Dir = "../backend"
 	cmd.Run()
