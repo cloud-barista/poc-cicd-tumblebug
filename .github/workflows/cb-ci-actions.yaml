@@ -227,9 +227,9 @@ jobs:
 
       - name: Run Coverage
         env:
-          CBTUMBLEBUG_ROOT: ${{ github.workspace }}/integration-test
-          CBSTORE_ROOT: ${{ github.workspace }}/integration-test
-          CBLOG_ROOT: ${{ github.workspace }}/integration-test
+          CBTUMBLEBUG_ROOT: ${{ github.workspace }}/src/test
+          CBSTORE_ROOT: ${{ github.workspace }}/src/test
+          CBLOG_ROOT: ${{ github.workspace }}/src/test
           SPIDER_CALL_METHOD: REST
           SPIDER_REST_URL: http://localhost:31024/spider # *** Be careful : port is changed for testing
           DRAGONFLY_REST_URL: http://localhost:9090/dragonfly
@@ -244,9 +244,9 @@ jobs:
           GOLANG_PROTOBUF_REGISTRATION_CONFLICT: ignore
           API_DOC_PATH: ${{ github.workspace }}/src/api/rest/docs/swagger.json
         run: |
-          cd ${{ github.workspace }}/integration-test
+          cd ${{ github.workspace }}/src/test
 
-          (go test -p 1 -v -coverpkg=$(go list ../... | grep -v integration-test | grep -v protobuf | tr "\n" ",")  -coverprofile=../outputs/coverage.txt ./... > ../outputs/coverage.log 2>&1; echo $? > ../outputs/coverage.check ) || true
+          (go test -p 1 -v -coverpkg=$(go list ../../... | grep -v src/test | grep -v protobuf | tr "\n" ",")  -coverprofile=../../outputs/coverage.txt ./... > ../../outputs/coverage.log 2>&1; echo $? > ../../outputs/coverage.check ) || true
           
           cd ${{ github.workspace }}
 
