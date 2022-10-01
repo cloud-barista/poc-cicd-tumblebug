@@ -9,7 +9,7 @@ replace (
 )
 
 require (
-	bou.ke/monkey v1.0.2 // indirect
+	bou.ke/monkey v1.0.2
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751
 	github.com/beego/beego/v2 v2.0.1
 	github.com/bramvdbogaerde/go-scp v1.0.0
@@ -30,9 +30,8 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/jonboulle/clockwork v0.2.2 // indirect
-	github.com/labstack/echo/v4 v4.3.0
+	github.com/labstack/echo/v4 v4.9.0
 	github.com/mailru/easyjson v0.7.7 // indirect
-	github.com/mattn/go-isatty v0.0.13 // indirect
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/prometheus/client_golang v1.11.0
@@ -52,7 +51,7 @@ require (
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20200427203606-3cfed13b9966 // indirect
 	github.com/uber/jaeger-client-go v2.29.1+incompatible
 	github.com/uber/jaeger-lib v2.4.1+incompatible // indirect
-	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97
+	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
 	golang.org/x/time v0.0.0-20210611083556-38a9dc6acbc6 // indirect
 	google.golang.org/grpc v1.39.0
 	gopkg.in/yaml.v2 v2.4.0
